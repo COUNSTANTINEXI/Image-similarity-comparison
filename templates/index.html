@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Similarity Comparator</title>
+    <style>
+        :root {
+            --primary-blue: #2196F3;
+            --secondary-blue: #90CAF9;
+            --background: #F5FCFF;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--background);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .upload-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .upload-section:hover {
+            transform: translateY(-5px);
+        }
+
+        h2 {
+            color: var(--primary-blue);
+            margin-bottom: 20px;
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--secondary-blue);
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .drop-zone:hover {
+            background: rgba(144, 202, 249, 0.1);
+        }
+
+        .preview-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .preview-img {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .preview-img:hover {
+            transform: scale(1.05);
+        }
+
+        button {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: #1976D2;
+        }
+
+        .loader {
+            display: none;
+            width: 30px;
+            height: 30px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="upload-section">
+            <h2>📌 主图片</h2>
+            <div class="drop-zone" id="mainDropZone">
+                <p>点击选择或拖放主图片</p>
+                <input type="file" id="mainImage" hidden accept="image/*">
+            </div>
+            <div id="mainPreview" class="preview-area"></div>
+        </div>
+
+        <div class="upload-section">
+            <h2>🖼️ 比对图片 (最多5张)</h2>
+            <div class="drop-zone" id="compDropZone">
+                <p>点击选择或拖放比对图片</p>
+                <input type="file" id="compImages" hidden accept="image/*" multiple>
+            </div>
+            <div id="compPreview" class="preview-area"></div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+        <button onclick="handleCompare()">开始比对</button>
+        <div class="loader" id="loader"></div>
+    </div>
+
+    <div class="result-section" id="resultSection" style="display: none;">
+        <h2>🎯 最相似图片</h2>
+        <div id="resultContent"></div>
+    </div>
+
+    <script>
+        // 处理文件选择
+        function setupDropZone(dropZoneId, inputId, previewId) {
+            const dropZone = document.getElementById(dropZoneId);
+            const input = document.getElementById(inputId);
+            const preview = document.getElementById(previewId);
+
+            dropZone.addEventListener('click', () => input.click());
+            
+            input.addEventListener('change', e => {
+                handleFiles(e.target.files, preview);
+            });
+
+            dropZone.addEventListener('dragover', e => {
+                e.preventDefault();
+                dropZone.style.background = 'rgba(144, 202, 249, 0.2)';
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.style.background = '';
+            });
+
+            dropZone.addEventListener('drop', e => {
+                e.preventDefault();
+                dropZone.style.background = '';
+                handleFiles(e.dataTransfer.files, preview);
+            });
+        }
+
+        function handleFiles(files, previewArea) {
+            previewArea.innerHTML = '';
+            const maxFiles = previewArea.id === 'compPreview' ? 5 : 1;
+            
+            for (let i = 0; i < Math.min(files.length, maxFiles); i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                
+                reader.onload = e => {
+                    const img = document.createElement('img');
+                    img.className = 'preview-img';
+                    img.src = e.target.result;
+                    previewArea.appendChild(img);
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // 初始化拖放区域
+        setupDropZone('mainDropZone', 'mainImage', 'mainPreview');
+        setupDropZone('compDropZone', 'compImages', 'compPreview');
+
+        async function handleCompare() {
+            const mainFile = document.getElementById('mainImage').files[0];
+            const compFiles = document.getElementById('compImages').files;
+
+            if (!mainFile || compFiles.length === 0) {
+                alert('请先选择主图片和至少一张比对图片');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('main_image', mainFile);
+            for (let i = 0; i < Math.min(compFiles.length, 5); i++) {
+                formData.append('comparison_images', compFiles[i]);
+            }
+
+            const loader = document.getElementById('loader');
+            const resultSection = document.getElementById('resultSection');
+            const resultContent = document.getElementById('resultContent');
+
+            loader.style.display = 'block';
+            resultSection.style.display = 'none';
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/compare', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const data = await response.json();
+                
+                resultContent.innerHTML = `
+                    <p style="font-size: 18px; color: #2196F3;">相似度最高的图片：${data.most_similar}</p>
+                    <p>相似度分数：${data.similarity.toFixed(4)}</p>
+                `;
+                resultSection.style.display = 'block';
+            } catch (error) {
+                alert('比对失败，请重试');
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
