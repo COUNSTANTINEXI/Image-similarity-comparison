@@ -86,5 +86,9 @@ def index():
 
 
 if __name__ == '__main__':
+    # 生成 requirements.txt 文件
+    with open('requirements.txt', 'w') as f:
+        f.write("flask\nflask-cors\nnumpy\npillow\ntorch\ntorchvision\n")
+
     app.run(debug=True, port=5000)
 
